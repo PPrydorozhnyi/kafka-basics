@@ -1,8 +1,16 @@
 package com.petro.prydorozhnyi.kafka.twitter;
 
 import java.util.List;
+import java.util.Properties;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
+
+import org.apache.kafka.clients.producer.Callback;
+import org.apache.kafka.clients.producer.KafkaProducer;
+import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
+import org.apache.kafka.common.serialization.StringSerializer;
 
 import com.petro.prydorozhnyi.kafka.ApplicationConstants;
 import com.twitter.hbc.ClientBuilder;
@@ -36,6 +44,9 @@ public class TwitterProducer {
         //attempts to establish the connection
         client.connect();
 
+        //kafka producer
+        KafkaProducer<String, String> producer = createKafkaProducer();
+
         // on a different thread, or multiple different threads....
         while (!client.isDone()) {
             String msg = null;
@@ -47,11 +58,33 @@ public class TwitterProducer {
             }
 
             if (msg != null) {
-                log.info("Message is {}", msg);
+                producer.send(new ProducerRecord<>("twitter_tweets", null, msg), (metadata, exception) -> {
+                    if (exception != null) {
+                        log.error("Cannot produce message", exception);
+                    }
+                });
             }
         }
 
+        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+            log.info("Shutting down");
+            client.stop();
+            producer.close();
+            log.info("Done");
+        }));
+
         log.info("End of run");
+    }
+
+    private KafkaProducer<String, String> createKafkaProducer() {
+        Properties properties = new Properties();
+        properties.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, ApplicationConstants.LOCAL_KAFKA_SERVER);
+        properties.setProperty(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG,
+                StringSerializer.class.getName());
+        properties.setProperty(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG,
+                StringSerializer.class.getName());
+        //producer
+        return new KafkaProducer<>(properties);
     }
 
     public BasicClient createTwitterClient(LinkedBlockingQueue<String> msgQueue) {
