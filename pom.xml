@@ -32,7 +32,7 @@
             <version>1.18.12</version>
         </dependency>
 
-<!--        tweeter stream dependency-->
+<!--        twitter stream dependency-->
         <dependency>
             <groupId>com.twitter</groupId>
             <artifactId>hbc-core</artifactId> <!-- or hbc-twitter4j -->
